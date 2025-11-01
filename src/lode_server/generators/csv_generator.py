@@ -60,7 +60,7 @@ class CSVGenerator(FileGenerator):
                         lon=lon,
                         speed=speed,
                         elevation=elevation,
-                        time=datetime.now(timezone.utc),
+                        time=datetime(1970, 1, 1, tzinfo=timezone.utc),  # Placeholder, updated in _update_position()
                         duration=duration,
                         transition=transition,
                         description=description
@@ -73,3 +73,13 @@ class CSVGenerator(FileGenerator):
                 
         except Exception as e:
             raise ValueError(f"Failed to load CSV file: {str(e)}")
+
+    def _update_position(self):
+        """
+        Get next position and add current timestamp.
+        CSV files don't contain meaningful timestamps, so we add current time.
+        """
+        position = super()._update_position()
+        if position is not None:
+            position.time = datetime.now(timezone.utc)
+        return position

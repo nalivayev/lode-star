@@ -252,7 +252,10 @@ class FileGenerator(LodeGenerator):
 
     def _update_position(self) -> Optional[Position]:
         """
-        Get next point.
+        Get next point from file data.
+        Returns the position exactly as loaded from file.
+        Subclasses should override this method to add missing fields (e.g., current timestamp).
+        
         Returns:
             Optional[Position]: Next position data or None if finished
         """

@@ -72,10 +72,8 @@ def load_generators():
         plugin_group = f"{root_package}.generators"
         
         eps = entry_points()
-        if hasattr(eps, 'select'):  # Python 3.10+
-            plugins = eps.select(group=plugin_group)
-        else:
-            plugins = eps.get(plugin_group, [])
+        # Use Python 3.10+ API (requires-python = ">=3.10")
+        plugins = eps.select(group=plugin_group)
         
         for ep in plugins:
             generator_class = ep.load()

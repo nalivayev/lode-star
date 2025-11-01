@@ -46,7 +46,7 @@ class GeoJSONGenerator(FileGenerator):
                     lon=coords[0],
                     speed=float(props.get('speed', 0)),
                     elevation=float(props.get('elevation', 0)),
-                    time=datetime.now(timezone.utc),
+                    time=datetime(1970, 1, 1, tzinfo=timezone.utc),  # Placeholder, updated in _update_position()
                     duration=float(props.get('duration', 0)),
                     transition=props.get('transition', 'auto'),
                     description=props.get('description', '')
@@ -59,3 +59,13 @@ class GeoJSONGenerator(FileGenerator):
                 
         except Exception as e:
             raise ValueError(f"Failed to load route file: {str(e)}")
+
+    def _update_position(self):
+        """
+        Get next position and add current timestamp.
+        GeoJSON files don't contain meaningful timestamps, so we add current time.
+        """
+        position = super()._update_position()
+        if position is not None:
+            position.time = datetime.now(timezone.utc)
+        return position
