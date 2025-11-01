@@ -3,6 +3,29 @@
 Lode Star is a TCP server for emulating GNSS/NMEA data streams.  
 It supports dynamic simulation (circular movement), route playback from GeoJSON or CSV files, and playback from files containing NMEA sentences.
 
+## Requirements
+
+- Python 3.10 or higher
+
+## Installation
+
+### From Source
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd lode_star/lode_server
+
+# Install the server package
+pip install -e .
+```
+
+### Using pip (when published)
+
+```bash
+pip install lode_server
+```
+
 ## Features
 
 - **NMEA 0183 output** (RMC, GGA sentences)
@@ -11,17 +34,30 @@ It supports dynamic simulation (circular movement), route playback from GeoJSON 
   - **geojson**: Plays back a route from a GeoJSON file
   - **csv**: Plays back a route from a CSV file
   - **nmea**: Plays back a sequence of NMEA sentences from a text file (one per line)
+  - **Extensible**: Support for custom generators via plugin system
 - **TCP server**: Multiple clients can connect and receive the same data stream
 - **Console output**: Each point's data is printed in a formatted table and updates in-place
 - **Optional interactive start**: Use `--wait-for-keypress` to start transmission after pressing ENTER
 
 ## Usage
 
-```sh
+After installation, use the `lode-server` command:
+
+```bash
+lode-server <port> --source <type> [params...] [--wait-for-keypress]
+```
+
+Or run the module directly:
+
+```bash
 python -m lode_server <port> --source <type> [params...] [--wait-for-keypress]
 ```
 
 ### Sources and Parameters
+
+**Parameter Formats:**
+- **Positional parameters**: Required parameters specified by position (e.g., file paths, coordinates)
+- **Named parameters**: Optional parameters in `name=value` format (e.g., `speed=10.0`, `duration=2.0`)
 
 #### 1. Dynamic Generation (`dynamic`)
 
@@ -32,15 +68,18 @@ Simulates circular movement from a starting point.
 dynamic <lat> <lon> [speed=<km/h>] [duration=<seconds>] [radius=<km>] [transition=<mode>]
 ```
 
+**Required parameters:**
 - `lat`, `lon` — starting coordinates (float)
-- `speed` — speed in km/h (default: 10.0)
-- `duration` — time in seconds between points (default: 1.0)
-- `radius` — radius of the circular path in km (default: 0.1)
-- `transition` — transition mode: `auto` (default) or `manual`
+
+**Optional parameters:**
+- `speed=<value>` — speed in km/h (default: 10.0)
+- `duration=<value>` — time in seconds between points (default: 1.0)
+- `radius=<value>` — radius of the circular path in km (default: 0.1)
+- `transition=<value>` — transition mode: `auto` (default) or `manual`
 
 **Example:**
-```
-python -m lode_server 10110 --source dynamic 55.7522 37.6156 speed=15.0 duration=2.0 radius=0.2 transition=manual
+```bash
+lode-server 10110 --source dynamic 55.7522 37.6156 speed=15.0 duration=2.0 radius=0.2 transition=manual
 ```
 
 #### 2. GeoJSON Playback (`geojson`)
@@ -49,14 +88,23 @@ Plays back a route from a GeoJSON file.
 
 **Syntax:**
 ```
-geojson <path/to/route.json>
+geojson <path/to/route.json> [duration=<seconds>] [index=<start_number>]
 ```
 
-- Each point in the GeoJSON should have `speed` (km/h), `duration` (seconds), and optionally `transition` and `description` in its properties.
+**Required parameters:**
+- `path/to/route.json` — path to GeoJSON file
 
-**Example:**
-```
-python -m lode_server 10110 --source geojson path/to/route.json
+**Optional parameters:**
+- `duration=<value>` — override duration for all points in seconds (default: use values from file)
+- `index=<value>` — starting point number (default: 1)
+
+**GeoJSON format requirements:**
+- Each point should have `speed` (km/h), `duration` (seconds), and optionally `transition` and `description` in its properties
+
+**Examples:**
+```bash
+lode-server 10110 --source geojson examples/example.geojson
+lode-server 10110 --source geojson examples/example.geojson duration=2.0 index=100
 ```
 
 #### 3. CSV Playback (`csv`)
@@ -65,15 +113,24 @@ Plays back a route from a CSV file.
 
 **Syntax:**
 ```
-csv <path/to/route.csv>
+csv <path/to/route.csv> [duration=<seconds>] [index=<start_number>]
 ```
 
-- CSV columns: `point_number,latitude,longitude,speed,elevation,duration,transition,description`
-- Only the first five columns are required; others are optional.
+**Required parameters:**
+- `path/to/route.csv` — path to CSV file
 
-**Example:**
-```
-python -m lode_server 10110 --source csv path/to/route.csv
+**Optional parameters:**
+- `duration=<value>` — override duration for all points in seconds (default: use values from file)
+- `index=<value>` — starting point number (default: 1)
+
+**CSV format requirements:**
+- CSV columns: `index,latitude,longitude,speed,elevation,duration,transition,description`
+- Only latitude and longitude are required; others are optional with defaults
+
+**Examples:**
+```bash
+lode-server 10110 --source csv examples/example.csv
+lode-server 10110 --source csv examples/example.csv duration=1.5 index=50
 ```
 
 #### 4. NMEA File Playback (`nmea`)
@@ -87,9 +144,21 @@ Currently, only RMC and GGA sentences are guaranteed to be parsed; others are sk
 nmea <path/to/nmea.txt>
 ```
 
-**Example:**
+**Syntax:**
 ```
-python -m lode_server 10110 --source nmea path/to/nmea.txt
+nmea <path/to/nmea.txt> [duration=<seconds>] [index=<start_number>]
+```
+
+**Required parameters:**
+- `path/to/nmea.txt` — path to NMEA file
+
+**Optional parameters:**
+- `duration=<value>` — time in seconds between points (default: 1.0)
+- `index=<value>` — starting point number (default: 1)
+
+**Example:**
+```bash
+lode-server 10110 --source nmea examples/example.nmea duration=2.0
 ```
 
 ### Optional Flags
@@ -187,28 +256,62 @@ $GPGGA,123520,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
 
 ## Plugin System
 
-Lode Star uses a plugin system for generators. Each generator (for example, dynamic, geojson, csv, nmea) is implemented as a separate Python class and registered using a decorator. This makes it easy to add new generator types without modifying the core server code.
+Lode Star uses a plugin system for generators. Each generator (dynamic, geojson, csv, nmea) is implemented as a separate Python class and registered using a decorator. This makes it easy to add new generator types without modifying the core server code.
 
-- To add a new generator, create a new Python file in `lode_server/generators/`, define a class that inherits from `LodeGenerator`, and register it with the `@register_generator("your_source_name")` decorator.
-- The generator will be automatically discovered and available via the `--source` command-line option.
+### Built-in Generators
+
+The following generators are included with lode-server:
+- `dynamic` - Circular movement simulation
+- `geojson` - GeoJSON route playback  
+- `csv` - CSV route playback
+- `nmea` - NMEA sentence playback
+
+### Creating Custom Generators
+
+To add a new generator:
+
+1. Create a class that inherits from `LodeGenerator`
+2. Register it with the `@register_generator("name")` decorator
+3. Implement the `_update_position()` method
 
 **Example:**
 ```python
-from lode_server.generator import LodeGenerator, Position
+from lode_server.core import LodeGenerator, Position
 from lode_server.generators import register_generator
+from datetime import datetime, timezone
 
 @register_generator("my_custom")
 class MyCustomGenerator(LodeGenerator):
     def __init__(self, *args):
         super().__init__()
-        # your initialization
-
+        # Your initialization logic here
+        
     def _update_position(self):
-        # your logic
-        return Position(...)
+        # Your position generation logic
+        return Position(
+            index=1,
+            lat=55.7522,
+            lon=37.6156,
+            speed=10.0,
+            elevation=0.0,
+            time=datetime.now(timezone.utc),
+            duration=1.0,
+            transition="auto",
+            description=""
+        )
 ```
 
-This approach allows you to extend the server with custom data sources or simulation logic, simply by dropping new generator modules into the `generators` directory.
+### External Plugin Distribution
+
+External generators can be distributed as separate Python packages using entry points:
+
+```toml
+# pyproject.toml
+[project.entry-points."lode_server.generators"]
+my_generator = "my_package.generators:MyGenerator"
+```
+
+This allows extending the server with custom data sources or simulation logic without modifying the core codebase.
 
 ## Notes
 

@@ -14,10 +14,13 @@ class GeoJSONGenerator(FileGenerator):
     def __init__(self, *args) -> None:
         super().__init__()
         
-        if len(args) < 1:
+        # Parse common parameters and get remaining args
+        remaining_args = self._parse_common_params(args)
+        
+        if len(remaining_args) < 1:
             raise ValueError("Route file path must be specified")
             
-        self._load_file(args[0])
+        self._load_file(remaining_args[0])
         
     def _load_file(self, filename: str) -> None:
         """Load and validate the GeoJSON route file"""
@@ -51,6 +54,9 @@ class GeoJSONGenerator(FileGenerator):
                     transition=props.get('transition', 'auto'),
                     description=props.get('description', '')
                 )
+                
+                # Apply common parameter overrides
+                point = self._apply_common_params(point, index)
                 self._positions.append(point)
                 index += 1
                 

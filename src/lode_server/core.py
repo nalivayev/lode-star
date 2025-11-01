@@ -247,8 +247,64 @@ class LodeGenerator(ABC, Iterator):
 
 class FileGenerator(LodeGenerator):
 
-    _positions: list[Position] = []
-    _index: int = 0
+    def __init__(self, *args) -> None:
+        """Initialize file generator with common parameters support."""
+        super().__init__()
+        self._positions: list[Position] = []
+        self._index: int = 0
+        
+        # Parse common parameters
+        self._duration_override: Optional[float] = None
+        self._index_override: Optional[int] = None
+        
+    def _parse_common_params(self, args: tuple) -> tuple:
+        """
+        Parse common file generator parameters and return remaining args.
+        
+        Args:
+            args: All arguments passed to generator
+            
+        Returns:
+            tuple: Arguments with common parameters removed
+        """
+        remaining_args = []
+        
+        for param in args:
+            if isinstance(param, str) and param.startswith("duration="):
+                try:
+                    self._duration_override = float(param.split("=", 1)[1])
+                except Exception:
+                    raise ValueError("Invalid duration value")
+            elif isinstance(param, str) and param.startswith("index="):
+                try:
+                    self._index_override = int(param.split("=", 1)[1])
+                except Exception:
+                    raise ValueError("Invalid index value")
+            else:
+                remaining_args.append(param)
+                
+        return tuple(remaining_args)
+    
+    def _apply_common_params(self, position: Position, original_index: int) -> Position:
+        """
+        Apply common parameter overrides to a position.
+        
+        Args:
+            position: Original position from file
+            original_index: Original index (1-based) from file loading
+            
+        Returns:
+            Position: Position with applied overrides
+        """
+        # Override duration if specified
+        if self._duration_override is not None:
+            position.duration = self._duration_override
+            
+        # Override index if specified
+        if self._index_override is not None:
+            position.index = self._index_override + (original_index - 1)
+            
+        return position
 
     def _update_position(self) -> Optional[Position]:
         """

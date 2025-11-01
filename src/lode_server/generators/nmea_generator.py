@@ -11,22 +11,14 @@ class NMEAGenerator(FileGenerator):
     """
     def __init__(self, *args) -> None:
         super().__init__()
-        if len(args) < 1:
-            raise ValueError("NMEA file path must be specified")
-
-        for param in args[1:]:
-            if isinstance(param, str) and param.startswith("duration="):
-                try:
-                    self._duration = float(param.split("=", 1)[1])
-                except Exception:
-                    raise ValueError("Invalid duration value")
-            elif isinstance(param, str) and param.startswith("index="):
-                try:
-                    self._index = int(param.split("=", 1)[1])
-                except Exception:
-                    raise ValueError("Invalid duration value")
         
-        self._load_file(args[0])
+        # Parse common parameters and get remaining args
+        remaining_args = self._parse_common_params(args)
+        
+        if len(remaining_args) < 1:
+            raise ValueError("NMEA file path must be specified")
+        
+        self._load_file(remaining_args[0])
 
     def _load_file(self, filename: str) -> None:
         """Load NMEA sentences from the specified file and parse them into Position objects."""
@@ -37,7 +29,11 @@ class NMEAGenerator(FileGenerator):
                     pos = NMEADecoder.decode(line)
                     if pos:
                         pos.index = index
-                        pos.duration = self._duration
+                        pos.duration = 1.0  # Default duration
+                        
+                        # Apply common parameter overrides
+                        pos = self._apply_common_params(pos, index)
+                        
                         self._positions.append(pos)
                         index += 1
                 except Exception as e:

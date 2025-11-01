@@ -20,14 +20,17 @@ class CSVGenerator(FileGenerator):
     def __init__(self, *args) -> None:
         """
         Args:
-            args: [filename] - path to CSV file
+            args: [filename, duration=<seconds>, index=<start_number>] - path to CSV file and optional parameters
         """
         super().__init__()
         
-        if len(args) < 1:
+        # Parse common parameters and get remaining args
+        remaining_args = self._parse_common_params(args)
+        
+        if len(remaining_args) < 1:
             raise ValueError("CSV file path must be specified")
             
-        self._load_file(args[0])
+        self._load_file(remaining_args[0])
         
     def _load_file(self, filename: str) -> None:
         """Load and validate the CSV file"""
@@ -65,6 +68,9 @@ class CSVGenerator(FileGenerator):
                         transition=transition,
                         description=description
                     )
+                    
+                    # Apply common parameter overrides
+                    position = self._apply_common_params(position, index)
                     self._positions.append(position)
                     index += 1
                 
