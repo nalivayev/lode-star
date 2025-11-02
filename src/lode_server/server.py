@@ -64,10 +64,10 @@ class LodeServer:
         """Start the Lode TCP server and begin data transmission."""
         try:
             # Start client handler thread
-            self.client_handler = ClientThread(self._port)
-            self.client_handler.start()
+            self._client_handler = ClientThread(self._port)
+            self._client_handler.start()
 
-            self.generator = self._create_generator(self._source, *self._params)
+            self._generator = self._create_generator(self._source, *self._params)
 
             print(f"\nLode TCP Server started on port {self._port}")
             print("=" * 40)
@@ -86,17 +86,16 @@ class LodeServer:
             print("\n" * 1)
             while True:
                 try:
-                    last_time = time.perf_counter()
-                    data = next(self.generator)
+                    data = next(self._generator)
+                    start_time = time.perf_counter()
 
                     self._print_data(data)
 
                     rmc = self._encoder.encode_rmc(data)
                     gga = self._encoder.encode_gga(data)
-                    self.client_handler.add_data(rmc, gga)
+                    self._client_handler.add_data(rmc, gga)
 
-                    current_time = time.perf_counter()
-                    elapsed = current_time - last_time
+                    elapsed = time.perf_counter() - start_time
                     remaining_time = data.duration - elapsed
 
                     if remaining_time > 0.001:
@@ -116,9 +115,9 @@ class LodeServer:
             print(f"Server initialization error: {str(e)}")
         finally:
             print("\nServer stopped gracefully")
-            if self.client_handler:
-                self.client_handler.stop()
-                self.client_handler.join(timeout=1)
+            if self._client_handler:
+                self._client_handler.stop()
+                self._client_handler.join(timeout=1)
 
 
 def run_server(

@@ -168,12 +168,48 @@ class NMEADecoder:
         raise ValueError("Unsupported NMEA sentence type")
 
     @staticmethod
+    def _parse_coordinate(coord_str, max_degrees_digits):
+        """
+        Parse NMEA coordinate string (degrees + minutes) to decimal degrees.
+        
+        Args:
+            coord_str: Coordinate string in DDMM.MMMM or DDDMM.MMMM format
+            max_degrees_digits: Maximum number of digits for degrees (2 for lat, 3 for lon)
+            
+        Returns:
+            float: Coordinate in decimal degrees
+        """
+        if not coord_str:
+            return 0.0
+            
+        # Find decimal point to determine where degrees end
+        if '.' in coord_str:
+            # Find the position where minutes start (should have 2 digits before decimal for minutes)
+            dot_pos = coord_str.find('.')
+            # Minutes should be XX.XXXXX format, so degrees end 2 positions before the dot
+            if dot_pos >= 4:  # Ensure we have at least DDMM.XXXXX or DDDMM.XXXXX
+                deg_end = dot_pos - 2
+                deg = int(coord_str[:deg_end])
+                min_val = float(coord_str[deg_end:])
+            else:
+                # Fallback to fixed positions based on coordinate type
+                deg_digits = min(max_degrees_digits, len(coord_str) - 2)
+                deg = int(coord_str[:deg_digits])
+                min_val = float(coord_str[deg_digits:])
+        else:
+            # No decimal point, assume fixed format based on coordinate type
+            deg_digits = min(max_degrees_digits, len(coord_str) - 2) if len(coord_str) > 2 else max_degrees_digits
+            deg = int(coord_str[:deg_digits])
+            min_val = float(coord_str[deg_digits:]) if len(coord_str) > deg_digits else 0.0
+        
+        return deg + min_val / 60
+
+    @staticmethod
     def _parse_lat(lat_str, ns):
         if not lat_str or not ns:
             return 0.0
-        deg = int(lat_str[:2])
-        min = float(lat_str[2:])
-        lat = deg + min / 60
+        
+        lat = NMEADecoder._parse_coordinate(lat_str, 2)  # Latitude: max 2 digits for degrees
         if ns == 'S':
             lat = -lat
         return lat
@@ -182,9 +218,8 @@ class NMEADecoder:
     def _parse_lon(lon_str, ew):
         if not lon_str or not ew:
             return 0.0
-        deg = int(lon_str[:3])
-        min = float(lon_str[3:])
-        lon = deg + min / 60
+        
+        lon = NMEADecoder._parse_coordinate(lon_str, 3)  # Longitude: max 3 digits for degrees
         if ew == 'W':
             lon = -lon
         return lon
@@ -358,26 +393,26 @@ class ClientThread(threading.Thread):
                     pass
             self._clients.clear()
         
-        if self.server_socket:
+        if self._server_socket:
             try:
-                self.server_socket.close()
+                self._server_socket.close()
             except Exception:
                 pass
 
     def run(self) -> None:
         """Main thread loop for accepting clients and broadcasting data."""
         try:
-            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.server_socket.bind(('0.0.0.0', self._port))
-            self.server_socket.listen(5)
-            self.server_socket.settimeout(1)
+            self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self._server_socket.bind(('0.0.0.0', self._port))
+            self._server_socket.listen(5)
+            self._server_socket.settimeout(1)
 
             while self._running:
                 try:
                     # Accept new clients
                     try:
-                        conn, addr = self.server_socket.accept()
+                        conn, addr = self._server_socket.accept()
                         with self._lock:
                             self._clients.append(conn)
                     except socket.timeout:
