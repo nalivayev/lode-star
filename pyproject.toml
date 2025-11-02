@@ -1,5 +1,5 @@
 [project]
-name = "lode_server"
+name = "lode-server"
 version = "0.1.0"
 description = "TCP server and generator (dynamic, GeoJSON, CSV, etc)"
 authors = [
